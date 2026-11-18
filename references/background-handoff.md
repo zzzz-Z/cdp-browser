@@ -7,7 +7,7 @@ OpenCode 官方浏览器实现（opencode-browser）已改为直连 CDP、无扩
 2. agent 静默工作：用 `@<targetId>` + 普通 page 命令（`--snapshot` / `--eval` / `--save`）操作那个标签；窗口最小化不影响 CDP
 3. 检测需要人工：agent 用 `--eval` 读 `location.href` / 页面文本，命中登录页、2FA、验证码、支付页就交接
 4. 交还用户：`node cdp.js --browser --show <targetId>` 恢复并激活窗口，然后用 `ask_user_question` 提示用户接手
-5. 等待继续：`node cdp.js @<targetId> --wait-url <登录后URL片段> 300` 轮询到 URL 变化即 `matched:true`，agent 接着跑
+5. 等待继续：`node cdp.js @<targetId> --wait-no-url login 300` 轮询到 URL **离开登录页**即 `matched:true`，agent 接着跑。**不要猜登录后的目标 URL**（可能跳到任意页面，硬编码片段会永远等不到）；用 `--wait-no-url login` 只判断「已离开 login」，最稳。若明确知道目标 URL 才用 `--wait-url <片段>`。
 
 ## 语义化快照（opencode 的 uid 机制）
 - `node cdp.js <URL片段> --snapshot` → 输出 `[uid] role "name"` 列表，uid→backendDOMNodeId 映射存 `.uid-cache/<targetId>.json`
