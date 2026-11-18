@@ -10,7 +10,7 @@ description: 操作网页、前端改完验证、e2e、截图、取 DOM/接口�
 **前提**：Chrome 需带 `--remote-debugging-port=9222` 启动。先 `node cdp.js --list` 验证连通；连不上再按 `references/commands.md` 的「前提」章节启动。
 
 ## 按需读取
-- 先看 `node cdp.js --help` 获取完整命令速查（脚本自带，无需打开文件）
-- `references/commands.md` — 调用约定、参数细节、CDP 方法速查表
+- 先看 `node cdp.js --help`（脚本内置帮助；此命令输出纯文本，其余命令 stdout 为 JSON）
+- `references/commands.md` — 调用约定、各命令输出字段、CDP 方法速查表
 - `references/verify-workflow.md` — 前端改完验证流程（截图 + 报错收集）
 - `references/background-handoff.md` — 后台窗口 + 登录/2FA 人工交接
