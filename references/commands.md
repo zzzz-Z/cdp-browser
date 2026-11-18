@@ -43,6 +43,8 @@ cwd 设为脚本所在目录，或用绝对路径调用。stdout 只输出 JSON�
 - 前端改完等 HMR 稳定再操作/截图；截图前可轮询目标 DOM 出现
 - 省内存：`Network.setBlockedURLs` 挡 `*.png/*.jpg/*.woff*/*.mp4`；用完 `Target.closeTarget`
 - 连接取自 `/json` 返回的 webSocketDebuggerUrl，全程不新建浏览器进程
+- `--snapshot` 会在本 skill 目录 `.uid-cache/<targetId>.json` 落盘 uid 映射；导航后缓存带 URL 校验自动失效，需重新 `--snapshot`
+- 命令 stdout JSON 关键字段：`--eval` → `{value}`；`--list` → `[{type,id,title,url}]`；`--snapshot` → `{targetId,count,cache,lines}`；`--find` → `{found,element:{tag,text,x,y}}`；`--wait-selector/--wait-url` → `{matched,...}`；`--collect` → `{seconds,events}`；`--save` → `{saved,bytes}`
 - 拿到数据自行判断，不要套固定流程
 
 ## 常用 CDP 方法速查
