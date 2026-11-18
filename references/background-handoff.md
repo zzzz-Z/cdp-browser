@@ -3,7 +3,7 @@
 借鉴 OpenCode 官方 opencode-browser 的直连 CDP / 显式 target_id / [uid] 语义定位。**默认所有操作在后台标签进行，完成自动关闭，不抢焦点、不新开窗口、不依赖任何平台特定 API**。macOS / Linux / Windows 通吃。CDP 的 `Target.createTarget {background:true}` 在同一浏览器窗口开后台标签（不激活），这就是「后台运行」；跨平台的窗口最小化在部分系统不可靠，故不再使用。
 
 ## 标准流程（默认后台，结束即关）
-1. 开后台标签：`node cdp.js --browser --bg <URL>` → 返回 `targetId`，同时把会话写到 `.uid-cache/.session.json`。后续 page 命令**省略目标**即自动走这个标签（也可显式 `@<targetId>`）。
+1. 开后台标签：`node cdp.js --browser --bg <URL>` → 返回 `targetId`，同时把会话写到 `.uid-cache/.session.json`。后续 page 命令**省略目标**即自动走这个标签（也可显式 `@<targetId>`）。stderr 可能出现「焦点抑制不可用（浏览器版本不支持）」，不影响后台标签，可忽略。
 2. agent 静默工作：`node cdp.js --eval '...'`、`--snapshot`、`--click`、`--fill`、`--save` 等，全部作用于后台标签，前台用户无感。
 3. 一步流水线（推荐）：`node cdp.js --run <URL> '[{"name":"...","expr":"...","expect":...}, ...]'` —— 内部开后台 → 依次执行 JS → **无论成败自动关闭标签**，返回 `{results,autoClosed,failed}`，零残留。
 4. 检测需要人工：用 `--eval` 读 `location.href` / 页面文本，命中登录页、2FA、验证码、支付页就交接。
