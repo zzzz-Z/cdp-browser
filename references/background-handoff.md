@@ -6,7 +6,7 @@ OpenCode 官方浏览器实现（opencode-browser）已改为直连 CDP、无扩
 1. 开后台窗口：`node cdp.js --browser --bgwin <URL>` → 返回 `targetId` / `windowId`，窗口最小化、不抢焦点
 2. agent 静默工作：用 `@<targetId>` + 普通 page 命令（`--snapshot` / `--eval` / `--save`）操作那个标签；窗口最小化不影响 CDP
 3. 检测需要人工：agent 用 `--eval` 读 `location.href` / 页面文本，命中登录页、2FA、验证码、支付页就交接
-4. 交还用户：`node cdp.js --browser --show <targetId>` 恢复并激活窗口，然后用 `ask_user_question` 提示用户接手
+4. 交还用户：`node cdp.js --browser --show <targetId>` 恢复并激活窗口，再提示用户接手：主 agent 用 `ask_user_question`；**子代理用 `send_message({agent:'lead', message:'...'})` 通知 lead 联系用户**，然后结束当前 turn 等待 lead 回传「用户已完成」，不要自己猜凭据或无限轮询
 5. 等待继续：`node cdp.js @<targetId> --wait-no-url login 300` 轮询到 URL **离开登录页**即 `matched:true`，agent 接着跑。**不要猜登录后的目标 URL**（可能跳到任意页面，硬编码片段会永远等不到）；用 `--wait-no-url login` 只判断「已离开 login」，最稳。若明确知道目标 URL 才用 `--wait-url <片段>`。
 
 ## 语义化快照（opencode 的 uid 机制）
@@ -23,4 +23,4 @@ OpenCode 官方浏览器实现（opencode-browser）已改为直连 CDP、无扩
 ## 与 opencode 扩展版的区别
 - 扩展版用折叠标签组；CDP 无此 UI，改用独立窗口 + 最小化，不装任何扩展
 - 扩展版靠 native messaging 注入；本方案只需 Chrome 带 `--remote-debugging-port`，零依赖
-- 两者都复用真实登录态；人工交接用 `ask_user_question` 而非浏览器内提示
+- 两者都复用真实登录态；人工交接用宿主提问（主 agent `ask_user_question` / 子代理 `send_message` 给 lead）而非浏览器内提示
