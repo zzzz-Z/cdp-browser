@@ -30,7 +30,7 @@ google-chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-e2e-pr
 - 语义快照：`--snapshot` → `[uid] role "name"`（uid 缓存带 URL，页面导航后自动失效需重取）
 - 语义操作：`--click <uid>` / `--fill <uid> <text>`（fill 用原生 setter，兼容 React/Vue 受控组件）
 - 文本查找：`--find <可见文本>` → 返回元素中心坐标 x/y
-- 等待条件：`--wait-url <片段> [秒]` / `--wait-selector <CSS> [秒]`（HMR 稳定/异步渲染）
+- 等待条件：`--wait-url <片段> [秒]`（等 URL 含片段）/ `--wait-no-url <片段> [秒]`（等 URL 不含片段，人工交接等离开登录页用这个）/ `--wait-selector <CSS> [秒]`（HMR 稳定/异步渲染）
 - 事件收集：`--collect snapshot [秒]` → 捕获该时段内 console/error/exception/网络失败（关键：每次连接是新 WebSocket，enable 后的事件只在本连接期间产生，必须在同一进程内 enable+收集）
 - 批量：`echo '[{"method":"Page.enable"},{"method":"Runtime.evaluate","params":{"expression":"location.href"}}]' | node cdp.js <URL片段|@targetId> --batch`
 - 端口非 9222 设 `CDP_PORT`；超时设 `CDP_TIMEOUT`（默认 20000ms）
