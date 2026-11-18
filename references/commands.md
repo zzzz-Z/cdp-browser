@@ -32,7 +32,7 @@ google-chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-e2e-pr
 - 任意命令：`node cdp.js <URL片段|@targetId> <CDP方法> '<JSON参数>'`
 - 执行 JS：`node cdp.js <URL片段|@targetId> --eval "document.title"`；**带变量声明的脚本必须用 IIFE 包裹**（如 `--eval "(function(){const b=...; return ...})()"`）——多次 `--eval` 共享页面全局词法环境，顶层 `const`/`let` 会残留，重复声明会报 `Identifier ... has already been declared`
 - 截图保存：`node cdp.js <URL片段|@targetId> --save /path/out.png`
-- 语义快照：`--snapshot` → `[uid] role "name"`（uid 缓存带 URL，页面导航后自动失效需重取）；**纯图标按钮（没有 accessible name 的 `div[role=button]`，例如头像）不会出现在快照里**，先用 `--eval` 配 CSS 选择器触发点击展开，再对展开后的菜单重新 `--snapshot`
+- 语义快照：`--snapshot` → `[uid] role "name"`（uid 缓存带 URL，页面导航后自动失效需重取）；**纯图标按钮（没有 accessible name 的 `div[role=button]`，例如头像）不会出现在快照里**，先用 `--eval` 配 CSS 选择器触发点击展开，再对展开后的菜单重新 `--snapshot`；Element Plus 的下拉选项常 teleport 到 `.el-select-dropdown`，`--snapshot` 可能不包含 option 行，改用 `--eval` 读可见 `.el-select-dropdown__item` 并点选即可
 - 语义操作：`--click <uid>` / `--fill <uid> <text>`（fill 用原生 setter，兼容 React/Vue 受控组件）
 - 文本查找：`--find <可见文本>` → 返回元素中心坐标 x/y
 - 等待条件：`--wait-url <片段> [秒]`（等 URL 含片段）/ `--wait-no-url <片段> [秒]`（等 URL 不含片段，人工交接等离开登录页用这个）/ `--wait-selector <CSS> [秒]`（HMR 稳定/异步渲染）
@@ -50,6 +50,7 @@ cwd 设为脚本所在目录，或用绝对路径调用。stdout 只输出 JSON�
 - 连接取自 `/json` 返回的 webSocketDebuggerUrl，全程不新建浏览器进程
 - `--snapshot` 会在本 skill 目录 `.uid-cache/<targetId>.json` 落盘 uid 映射；导航后缓存带 URL 校验自动失效，需重新 `--snapshot`
 - 命令 stdout JSON 关键字段：`--eval` → `{value}`；`--list` → `[{type,id,title,url}]`；`--snapshot` → `{targetId,count,cache,lines}`；`--find` → `{found,element:{tag,text,x,y}}`；`--wait-url/--wait-no-url/--wait-selector` → `{matched,...}`；`--collect` → `{seconds,events}`；`--save` → `{saved,bytes}`
+- `--close` 只关标签并清理 `.uid-cache/.session.json`；`.uid-cache/<targetId>.json` 是 uid 映射，会保留（不是标签残留），需要时可手动删除
 - 拿到数据自行判断，不要套固定流程
 
 ## 常用 CDP 方法速查
