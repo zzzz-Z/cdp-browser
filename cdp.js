@@ -98,10 +98,38 @@ function pageMatches(ts, selector) {
 
 const argv = process.argv.slice(2);
 if (!argv.length || argv[0] === '--help' || argv[0] === '-h') {
-  let help = '';
-  try { help = readFileSync(join(HERE, 'SKILL.md'), 'utf8'); } catch {}
-  const block = help.split('## 命令速查')[1] || '';
-  console.log('cdp.js —— 通用 CDP 网关（详细见 SKILL.md）\n' + block.split('##')[0].trim());
+  const HELP = [
+    '用法: node cdp.js <目标> <命令> [参数]',
+    '  目标: URL片段 / @targetId / --browser（浏览器级命令）',
+    '',
+    '基础:',
+    '  --list                              列出标签（只 page 类型）',
+    '  <目标> --eval "JS"                  执行 JS',
+    '  <目标> --save /path/out.png         整页截图',
+    '  <目标> <CDP方法> \'<JSON>\'          任意 CDP 命令，如 Page.navigate',
+    '',
+    '语义定位与交互:',
+    '  <目标> --snapshot                   输出 [uid] role "name"（uid 缓存随 URL 失效）',
+    '  <目标> --click <uid>                按 uid 点击',
+    '  <目标> --fill <uid> <text>          按 uid 填充（兼容 React/Vue）',
+    '  <目标> --find <文本>                按可见文本定位，返回中心 x/y',
+    '',
+    '等待与事件:',
+    '  <目标> --wait-url <片段> [秒]       等 URL 变化',
+    '  <目标> --wait-selector <CSS> [秒]   等 DOM 出现',
+    '  <目标> --collect snapshot [秒]      抓该时段 console/error/exception/网络失败',
+    '  <目标> --batch                      从 stdin 读 JSON 数组批量发命令',
+    '',
+    '后台窗口与人工交接:',
+    '  --browser --bgwin <URL>             开后台窗口并最小化',
+    '  --browser --show <targetId>         恢复并激活窗口',
+    '  --browser <Browser.*|Target.*> \'<JSON>\'  任意浏览器级命令',
+    '',
+    '配置: CDP_PORT（默认 9222）、CDP_TIMEOUT（默认 20000ms）',
+    'stdout 仅输出 JSON，诊断走 stderr；exit 0 成功 / 1 失败',
+    '详细文档见 SKILL.md 与 references/'
+  ].join('\n');
+  console.log('cdp.js —— 通用 CDP 网关\n\n' + HELP);
   process.exit(0);
 }
 
