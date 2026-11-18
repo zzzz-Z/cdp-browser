@@ -5,7 +5,7 @@ description: 操作网页、前端改完验证、e2e、截图、取 DOM/接口�
 
 # CDP 直连浏览器（通用网关）
 
-脚本：`/Users/apple/.dsh/skills/cdp-browser/cdp.js`（Node 22+ 内置 WebSocket，零依赖）。stdout 只输出 JSON，诊断走 stderr。用 run_code 里的 bash 执行，cwd 设脚本目录或用绝对路径。
+脚本：本 skill 目录下的 `cdp.js`（Node 22+ 内置 WebSocket，零依赖）。stdout 只输出 JSON，诊断走 stderr。用 run_code 里的 bash 执行：先 `cd` 到本 skill 目录，或用本文件所在目录的绝对路径调用。
 
 ## 启动 Chrome（一次，长期复用登录态）
 ```bash
