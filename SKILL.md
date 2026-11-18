@@ -7,6 +7,8 @@ description: 操作网页、前端改完验证、e2e、截图、取 DOM/接口�
 
 脚本：本 skill 目录下的 `cdp.js`（Node 22+ 内置 WebSocket，零依赖）。stdout 只输出 JSON，诊断走 stderr。
 
+**前提**：Chrome 需带 `--remote-debugging-port=9222` 启动。先 `node cdp.js --list` 验证连通；连不上再按 `references/commands.md` 的「前提」章节启动。
+
 ## 按需读取
 - 先看 `node cdp.js --help` 获取完整命令速查（脚本自带，无需打开文件）
 - `references/commands.md` — 调用约定、参数细节、CDP 方法速查表
