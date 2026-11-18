@@ -1,6 +1,6 @@
 # 命令参考与约定
 
-脚本：`/Users/apple/.dsh/skills/cdp-browser/cdp.js`（Node 22+ 内置 WebSocket，零依赖，无需 npm install）。本质是对已开 Chrome 的 CDP 端口执行任意命令，等价于 Chrome MCP 的底层能力，但不新增浏览器进程、不常驻 MCP 工具 schema。
+脚本：本 skill 目录下的 `cdp.js`（Node 22+ 内置 WebSocket，零依赖，无需 npm install）。本质是对已开 Chrome 的 CDP 端口执行任意命令，等价于 Chrome MCP 的底层能力，但不新增浏览器进程、不常驻 MCP 工具 schema。执行前先 `cd` 到脚本所在目录，或用绝对路径调用。
 
 ## 调用方式（用 run_code 里的 bash 执行）
 - 帮助：`node cdp.js --help`
