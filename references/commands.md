@@ -2,6 +2,25 @@
 
 脚本：本 skill 目录下的 `cdp.js`（Node 22+ 内置 WebSocket，零依赖，无需 npm install）。本质是对已开 Chrome 的 CDP 端口执行任意命令，等价于 Chrome MCP 的底层能力，但不新增浏览器进程、不常驻 MCP 工具 schema。执行前先 `cd` 到脚本所在目录，或用绝对路径调用。
 
+## 前提：启动带调试端口的 Chrome
+
+先跑 `node cdp.js --list`。若报「无法连接 9222」才需要启动 Chrome；已开着就别重复启动。用独立 profile 避免和日常 Chrome 冲突：
+
+```bash
+# macOS
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \\
+  --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-e2e-profile"
+
+# Linux
+google-chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-e2e-profile"
+
+# Windows (PowerShell)
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" `
+  --remote-debugging-port=9222 --user-data-dir="$env:USERPROFILE\.chrome-e2e-profile"
+```
+
+启动后 `node cdp.js --list` 验证。登录态保存在该 profile，首次人工登录一次后长期复用；端口非 9222 设 `CDP_PORT`。
+
 ## 调用方式（用 run_code 里的 bash 执行）
 - 帮助：`node cdp.js --help`
 - 列出标签：`node cdp.js --list`（只返回 page 类型，过滤掉 chrome:// 内部页）
