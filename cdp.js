@@ -23,17 +23,20 @@
 //
 // 约定: stdout 只输出 JSON；诊断走 stderr；单命令 20s 超时（CDP_TIMEOUT 可改）
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = join(HERE, '.uid-cache');
+const SESSION_FILE = join(CACHE_DIR, '.session.json');
+const readSession = () => { try { return JSON.parse(readFileSync(SESSION_FILE, 'utf8')); } catch { return null; } };
 const BASE = 'http://127.0.0.1:' + (process.env.CDP_PORT || 9222);
 const TIMEOUT = Number(process.env.CDP_TIMEOUT || 20000);
 const err = (m) => console.error('[cdp] ' + m);
 const die = (m, c = 1) => { err(m); process.exit(c); };
-const out = (o) => console.log(JSON.stringify(o));
+const out = (o, code = 0) => { console.log(JSON.stringify(o)); if (code) process.exit(code); };
 
 async function getJSON(path) {
   let res;
@@ -122,9 +125,13 @@ if (!argv.length || argv[0] === '--help' || argv[0] === '-h') {
     '  <目标> --collect snapshot [秒]      抓该时段 console/error/exception/网络失败',
     '  <目标> --batch                      从 stdin 读 JSON 数组批量发命令',
     '',
-    '后台窗口与人工交接:',
-    '  --browser --bgwin <URL>             开后台窗口并最小化',
-    '  --browser --show <targetId>         恢复并激活窗口',
+    '后台会话（默认后台 / 完成自动关闭 / 跨平台）:',
+    '  --browser --bg <URL>                开后台标签(不新窗口/不抢焦点)并记录会话',
+    '  --browser --bgwin <URL>             [兼容别名] 同 --bg',
+    '  --close [@targetId]                关闭会话标签并清理会话文件',
+    '  --run <URL> <steps-json>           开后台→依次执行步骤→自动关闭(一条命令)',
+    '  省略目标时所有 page 命令默认走当前会话 targetId',
+    '  --browser --show [@targetId]        把后台标签切到前台并激活（人工交接）',
     '  --browser <Browser.*|Target.*> \'<JSON>\'  任意浏览器级命令',
     '',
     '配置: CDP_PORT（默认 9222）、CDP_TIMEOUT（默认 20000ms）',
@@ -135,32 +142,73 @@ if (!argv.length || argv[0] === '--help' || argv[0] === '-h') {
   process.exit(0);
 }
 
+if (argv[0] === '--run') {
+  const url = argv[1];
+  const stepsRaw = argv[2];
+  if (!url || !stepsRaw) die('--run 需要 <URL> <steps-json>');
+  let steps; try { steps = JSON.parse(stepsRaw); } catch (e) { die('--run steps 不是合法 JSON: ' + e.message); }
+  if (!Array.isArray(steps)) die('--run steps 必须是数组');
+  const ver = await getJSON('/json/version');
+  const bc = await connect(ver.webSocketDebuggerUrl);
+  const created = await bc.send('Target.createTarget', { url, background: true });
+  if (created.error) { bc.close(); die('开后台标签失败: ' + JSON.stringify(created.error)); }
+  const targetId = created.result.targetId;
+  let pageWs; for (let i = 0; i < 40; i++) { const ts = await getJSON('/json'); pageWs = ts.find(t => t.id === targetId && t.type === 'page')?.webSocketDebuggerUrl; if (pageWs) break; await new Promise(r => setTimeout(r, 100)); }
+  if (!pageWs) { await bc.send('Target.closeTarget', { targetId }); bc.close(); die('后台标签未就绪'); }
+  const pc = await connect(pageWs);
+  await pc.send('Page.enable');
+  await new Promise(res => { let done = false; const finishLoad = () => { if (done) return; done = true; res(); }; const off = pc.onEvent(m => { if (m.method === 'Page.loadEventFired') { off(); finishLoad(); } }); setTimeout(() => { off(); finishLoad(); }, 10000); });
+  const results = [];
+  let failed = false;
+  for (const raw of steps) {
+    const r = await pc.send('Runtime.evaluate', { expression: raw.expr, returnByValue: true, awaitPromise: true });
+    const val = r.result?.exceptionDetails ? { exception: r.result.exceptionDetails.text + ': ' + (r.result.exceptionDetails.exception?.description || '') } : { value: r.result?.result?.value };
+    const rec = { name: raw.name || '', ...val };
+    results.push(rec);
+    if (val.exception || (raw.expect && JSON.stringify(val.value) !== JSON.stringify(raw.expect))) failed = true;
+  }
+  const closed = await bc.send('Target.closeTarget', { targetId });
+  bc.close(); pc.close();
+  out({ targetId, results, autoClosed: !!closed.result?.success, failed });
+  process.exit(failed ? 1 : 0);
+}
+
 if (argv[0] === '--browser') {
   const ver = await getJSON('/json/version');
   if (!ver.webSocketDebuggerUrl) die('/json/version 未提供 webSocketDebuggerUrl');
   const { send, close } = await connect(ver.webSocketDebuggerUrl);
 
-  if (argv[1] === '--bgwin') {
+  if (argv[1] === '--bg' || argv[1] === '--bgwin') {
     const url = argv[2];
-    if (!url) die('--bgwin 需要 URL');
-    const created = await send('Target.createTarget', { url, newWindow: true, background: true });
-    if (created.error) { out({ error: created.error }); close(); process.exit(1); }
+    if (!url) die(argv[1] + ' 需要 URL');
+    const created = await send('Target.createTarget', { url, background: true });
+    if (created.error) { out({ error: created.error }, 1); close(); process.exit(1); }
     const targetId = created.result.targetId;
     const win = await send('Browser.getWindowForTarget', { targetId });
-    const windowId = win.result?.windowId;
-    if (windowId != null) { await send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'minimized' } }); }
-    out({ targetId, windowId, minimized: windowId != null, url });
+    const windowId = win.result?.windowId ?? null;
+    if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(SESSION_FILE, JSON.stringify({ targetId, windowId, createdAt: Date.now() }));
+    try { const r = await send('Emulation.setFocusEmulationEnabled', { enabled: false }); if (r.error) err('焦点抑制不可用（浏览器版本不支持），不影响后台标签'); } catch {}
+    out({ targetId, windowId, background: true, url, note: '同一窗口后台标签，不新开窗口/不抢焦点；完成用 --close 自动关闭' });
     close(); process.exit(0);
   }
 
   if (argv[1] === '--show') {
-    const targetId = argv[2];
-    if (!targetId) die('--show 需要 targetId');
-    const win = await send('Browser.getWindowForTarget', { targetId });
-    const windowId = win.result?.windowId;
-    if (windowId != null) { await send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } }); }
+    const sess = readSession();
+    const targetId = argv[2] || sess?.targetId;
+    if (!targetId) die('--show 需要 targetId（无会话时）');
     const act = await send('Target.activateTarget', { targetId });
-    out({ targetId, windowId, activated: !act.error });
+    out({ targetId, windowId: sess?.windowId ?? null, activated: !act.error, note: '已把后台标签切到前台' });
+    close(); process.exit(0);
+  }
+
+  if (argv[1] === '--close') {
+    const sess = readSession();
+    const targetId = argv[2] || (sess && sess.targetId);
+    if (!targetId) die('--close 需要 targetId（无会话时）');
+    const res = await send('Target.closeTarget', { targetId });
+    let cleared = false; try { if (existsSync(SESSION_FILE)) { unlinkSync(SESSION_FILE); cleared = true; } } catch {}
+    out({ targetId, closed: !!res.result?.success, sessionCleared: cleared });
     close(); process.exit(0);
   }
 
@@ -179,7 +227,10 @@ if (argv[0] === '--list') {
   process.exit(0);
 }
 
-const [selector, command, arg1, arg2] = argv;
+let [selector, command, arg1, arg2] = argv;
+const sess = readSession();
+const PAGE_CMDS = new Set(['--snapshot','--click','--fill','--find','--wait-url','--wait-no-url','--wait-selector','--collect','--eval','--save','--close','--batch']);
+if (sess && argv[0] && argv[0].startsWith('--') && PAGE_CMDS.has(argv[0])) { arg2 = arg1; arg1 = command; command = selector; selector = '@' + sess.targetId; }
 if (!selector || !command) die('用法: node cdp.js <URL片段|@targetId> <METHOD|COMMAND> [参数]');
 
 const ts = await getJSON('/json');
@@ -323,6 +374,13 @@ if (command === '--save') {
   const buf = Buffer.from(r.result.data, 'base64');
   writeFileSync(arg1, buf);
   finish({ saved: arg1, bytes: buf.length });
+}
+
+if (command === '--close') {
+  const targetId = typeof selector === 'string' && selector.startsWith('@') ? selector.slice(1) : (sess?.targetId || page.id);
+  const res = await send('Target.closeTarget', { targetId });
+  let cleared = false; try { if (existsSync(SESSION_FILE)) { unlinkSync(SESSION_FILE); cleared = true; } } catch {}
+  finish({ targetId, closed: !!res.result?.success, sessionCleared: cleared });
 }
 
 if (command === '--eval') {
