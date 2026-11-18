@@ -13,6 +13,7 @@
 //   node cdp.js <URL片段|@targetId> --fill <uid> <text>     按 uid 填写（兼容 React/Vue）
 //   node cdp.js <URL片段|@targetId> --find <文本>           按可见文本查找元素
 //   node cdp.js <URL片段|@targetId> --wait-url <片段> [秒]  轮询 URL 等待人工完成
+//   node cdp.js <URL片段|@targetId> --wait-no-url <片段> [秒] 等 URL 不再包含该片段（人工交接推荐）
 //   node cdp.js <URL片段|@targetId> --wait-selector <CSS> [秒]
 //   node cdp.js <URL片段|@targetId> --collect <动作> [秒]   事件收集 console/error/network
 //   echo '[...]' | node cdp.js <URL片段|@targetId> --batch
@@ -115,7 +116,8 @@ if (!argv.length || argv[0] === '--help' || argv[0] === '-h') {
     '  <目标> --find <文本>                按可见文本定位，返回中心 x/y',
     '',
     '等待与事件:',
-    '  <目标> --wait-url <片段> [秒]       等 URL 变化',
+    '  <目标> --wait-url <片段> [秒]       等 URL 包含该片段',
+    '  <目标> --wait-no-url <片段> [秒]    等 URL 不再包含该片段（人工交接推荐）',
     '  <目标> --wait-selector <CSS> [秒]   等 DOM 出现',
     '  <目标> --collect snapshot [秒]      抓该时段 console/error/exception/网络失败',
     '  <目标> --batch                      从 stdin 读 JSON 数组批量发命令',
@@ -256,6 +258,21 @@ if (command === '--wait-url') {
     const r = await send('Runtime.evaluate', { expression: 'location.href', returnByValue: true });
     last = r.result?.result?.value || '';
     if (last.includes(needle)) finish({ matched: true, url: last });
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  finish({ matched: false, url: last, timeoutSec: secs });
+}
+
+if (command === '--wait-no-url') {
+  const needle = arg1;
+  const secs = Number(arg2 || 120);
+  if (!needle) finish({ error: '--wait-no-url 需要 URL 片段' }, 1);
+  const deadline = Date.now() + secs * 1000;
+  let last = '';
+  while (Date.now() < deadline) {
+    const r = await send('Runtime.evaluate', { expression: 'location.href', returnByValue: true });
+    last = r.result?.result?.value || '';
+    if (!last.includes(needle)) finish({ matched: true, url: last });
     await new Promise(r => setTimeout(r, 1000));
   }
   finish({ matched: false, url: last, timeoutSec: secs });
